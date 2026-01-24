@@ -1,41 +1,37 @@
-const CACHE_NAME = '1sec-judge-v2';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'onesec-v1-cache';
+const URLS_TO_CACHE = [
   '/',
   'index.html',
   'manifest.json',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
-// 서비스 워커 설치 및 리소스 캐싱
+// 설치 단계: 필수 리소스 캐싱
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
   );
+  self.skipWaiting();
 });
 
-// 새로운 서비스 워커 활성화 및 구버전 캐시 삭제
+// 활성화 단계: 오래된 캐시 정리
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) => Promise.all(
+      keys.map((key) => {
+        if (key !== CACHE_NAME) return caches.delete(key);
+      })
+    ))
   );
 });
 
-// 네트워크 요청 가로채기 (캐시 우선 전략)
+// 페치 단계: 네트워크가 안 될 때 캐시된 파일 제공
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // 캐시에 있으면 반환, 없으면 네트워크 요청
-      return response || fetch(event.request);
+      return response || fetch(event.request).catch(() => {
+        // 네트워크 실패 시 동작 (오프라인 처리)
+      });
     })
   );
 });
