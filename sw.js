@@ -1,34 +1,33 @@
-const CACHE_NAME = 'onesec-force-v2';
-const PRE_CACHE = [
+const CACHE_NAME = '1sec-v1.2';
+const ASSETS = [
   '/',
-  '/index.html',
-  '/manifest.json',
+  'index.html',
+  'manifest.json',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
-// 설치 시 즉시 제어권 획득
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRE_CACHE))
-  );
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
   self.skipWaiting();
 });
 
-// 활성화 시 구버전 즉시 삭제
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.map(k => k !== CACHE_NAME && caches.delete(k))
-    ))
-  );
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k)))));
   self.clients.claim();
 });
 
-// 네트워크 우선 순위 전략 (랭킹 데이터는 최신으로, UI는 캐시로)
 self.addEventListener('fetch', (e) => {
-  if (e.request.url.includes('supabase')) {
+  // Supabase API 호출은 네트워크 우선, 나머지는 캐시 우선
+  if (e.request.url.includes('supabase.co')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
   } else {
     e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+  }
+});
+
+// 백그라운드 동기화 (오프라인 점수 전송 대비)
+self.addEventListener('sync', (e) => {
+  if (e.tag === 'sync-scores') {
+    console.log('점수 동기화 중...');
   }
 });
