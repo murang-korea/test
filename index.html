@@ -1,395 +1,274 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
-<title>클리커 게임</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>1초 판단 - Global</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            margin: 0; background-color: #000; color: #fff;
+            font-family: 'Pretendard', sans-serif; overflow: hidden;
+            touch-action: none; user-select: none;
+        }
+        #main-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; background-color: #000; transition: opacity 0.4s ease;
+        }
+        #main-screen.hidden { opacity: 0; pointer-events: none; }
+        
+        #name-input-layer {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: #000; z-index: 200;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        input { 
+            background: none; border: none; border-bottom: 2px solid #fff; 
+            color: #fff; font-size: 24px; text-align: center; outline: none; padding: 10px;
+        }
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0e0f12">
+        .title { font-size: 50px; font-weight: 900; letter-spacing: -3px; margin-bottom: 5px; }
+        .best-label { font-size: 14px; color: #666; margin-bottom: 20px; }
+        
+        #ranking-board {
+            width: 240px; font-size: 14px; color: #555; margin-bottom: 40px;
+            text-align: center;
+        }
+        .rank-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #111; }
+        .rank-item.me { color: #fff; font-weight: bold; }
 
-<style>
-:root {
-    --bg: #0e0f12;
-    --card: #181a20;
-    --accent: #4da3ff;
-    --accent-2: #66d9ff;
-    --text: #ffffff;
-    --sub: #9aa0a6;
-    --danger: #ff7a7a;
-}
+        .start-prompt { font-size: 18px; color: #fff; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
 
-* { box-sizing: border-box; }
-html,body { height:100%; }
-
-body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-#app {
-    max-width: 420px;
-    margin: 0 auto;
-    padding: 20px;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-/* 카드 */
-.card {
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
-    border-radius: 18px;
-    padding: 14px;
-    margin-bottom: 14px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-    border: 1px solid rgba(255,255,255,0.03);
-}
-
-/* 상단 상태 */
-#topRow {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-}
-#score {
-    font-size: 34px;
-    font-weight: 800;
-    line-height:1;
-}
-.sub {
-    color: var(--sub);
-    font-size: 13px;
-}
-
-/* 클릭 오브젝트 */
-#clickArea {
-    height: 260px;
-    border-radius: 16px;
-    background: linear-gradient(145deg, #1e90ff 0%, #2078d6 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 26px;
-    font-weight: 800;
-    margin: 18px 0;
-    color: #021026;
-    position: relative;
-    overflow: hidden;
-    transform-origin: center;
-    transition: transform 120ms cubic-bezier(.2,.9,.3,1);
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-#clickArea:active { transform: scale(0.98); }
-
-/* floating +value */
-.floating {
-    position: absolute;
-    font-weight: 700;
-    pointer-events: none;
-    will-change: transform, opacity;
-    font-size: 18px;
-    color: #fff;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
-}
-
-/* 업그레이드 패널 */
-.upgradeRow {
-    display: flex;
-    gap: 10px;
-    align-items: stretch;
-}
-
-.upgrade {
-    flex: 1;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding: 12px;
-    border-radius: 12px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(0,0,0,0.02));
-    border: 1px solid rgba(255,255,255,0.02);
-}
-
-.upgrade .meta {
-    text-align: left;
-}
-.upgrade .meta .title { font-weight:700; font-size:14px; }
-.upgrade .meta .desc { font-size:12px; color:var(--sub); margin-top:2px; }
-
-/* 버튼 */
-.btn {
-    background: linear-gradient(180deg, var(--accent), var(--accent-2));
-    border: none;
-    padding: 8px 12px;
-    border-radius: 10px;
-    font-weight: 700;
-    color: #001;
-    min-width: 64px;
-    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
-    transform: translateZ(0);
-}
-
-.btn:active { transform: translateY(1px); }
-.btn.disabled {
-    opacity: 0.45;
-    filter: grayscale(20%);
-    box-shadow: none;
-    cursor: default;
-}
-
-/* bottom helpers */
-.row { display:flex; gap:8px; align-items:center; }
-.small { font-size:12px; color:var(--sub); }
-
-.footer {
-    margin-top: auto;
-    text-align: center;
-    color: var(--sub);
-    font-size: 12px;
-    padding: 8px 0;
-}
-
-/* responsive */
-@media (max-width:420px) {
-    #app { padding: 14px; }
-    #clickArea { height: 220px; }
-}
-</style>
+        #game-ui {
+            position: absolute; top: env(safe-area-inset-top, 20px); left: 0; width: 100%;
+            display: flex; justify-content: space-between; padding: 0 25px;
+            box-sizing: border-box; font-size: 18px; font-weight: 900;
+            z-index: 10; opacity: 0.4; display: none;
+        }
+        #feedback {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 60px; font-weight: 900; pointer-events: none; z-index: 5;
+            font-style: italic;
+        }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-
-<div id="app">
-
-    <div class="card" id="topRow">
-        <div>
-            <div id="score">0</div>
-            <div class="sub">총 점수</div>
-        </div>
-        <div style="text-align:right;">
-            <div class="sub">자동: <span id="autoStat">0</span>/초</div>
-            <div class="sub" id="pps">클릭력: <span id="clickPowerStat">1</span></div>
-        </div>
+    <div id="name-input-layer" style="display: none;">
+        <div style="margin-bottom: 20px; font-weight: bold;">닉네임 설정</div>
+        <input type="text" id="nickname" maxlength="8" placeholder="입력 후 엔터">
     </div>
 
-    <div id="clickArea" class="card" aria-label="클릭 영역">
-        TAP
+    <div id="main-screen">
+        <div class="title">1초 판단</div>
+        <div class="best-label">내 최고 기록: <span id="main-best">0</span></div>
+        <div id="ranking-board">
+            <div style="margin-bottom: 8px; font-size: 12px;">WORLD RANKING</div>
+            <div id="rank-list">로딩 중...</div>
+        </div>
+        <div class="start-prompt">터치하여 시작</div>
     </div>
 
-    <div class="card">
-        <div class="upgradeRow">
-            <div class="upgrade">
-                <div class="meta">
-                    <div class="title">클릭 파워</div>
-                    <div class="desc">클릭 당 얻는 점수 증가</div>
+    <div id="game-ui">
+        <div><span id="current-score">0</span></div>
+        <div>BEST <span id="best-score">0</span></div>
+    </div>
+    <div id="feedback"></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- Supabase 설정 (본인의 정보를 입력하세요) ---
+        const SUPABASE_URL = 'https://figxcufbkmhkoxnkuljg.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpZ3hjdWZia21oa294bmt1bGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxOTI5ODgsImV4cCI6MjA4NDc2ODk4OH0.eBQDwtWUXqZ-siZm0LPmMN8wLWUP6DzSMX6xV6dePwc';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // DOM 요소
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const mainScreen = document.getElementById('main-screen');
+        const gameUI = document.getElementById('game-ui');
+        const scoreEl = document.getElementById('current-score');
+        const bestEl = document.getElementById('best-score');
+        const feedbackEl = document.getElementById('feedback');
+
+        // 게임 변수
+        let width, height, score = 0;
+        let bestScore = parseInt(localStorage.getItem('bestScore')) || 0;
+        let myName = localStorage.getItem('nickname') || "";
+        let state = 'MAIN';
+        let targetTime = 0, appearTime = 0, duration = 0, timerId = null;
+        let particles = [], shakeTime = 0, audioCtx = null;
+
+        // 초기화 및 랭킹 불러오기
+        async function init() {
+            resize();
+            window.addEventListener('resize', resize);
+            bestEl.innerText = bestScore;
+            document.getElementById('main-best').innerText = bestScore;
+
+            if (!myName) {
+                document.getElementById('name-input-layer').style.display = 'flex';
+                document.getElementById('nickname').focus();
+            } else {
+                fetchRankings();
+            }
+
+            document.getElementById('nickname').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && e.target.value.trim()) {
+                    myName = e.target.value.trim();
+                    localStorage.setItem('nickname', myName);
+                    document.getElementById('name-input-layer').style.display = 'none';
+                    fetchRankings();
+                }
+            });
+
+            document.addEventListener('touchstart', handleInput, { passive: false });
+            document.addEventListener('mousedown', handleInput);
+            animate();
+        }
+
+        // 랭킹 데이터 가져오기
+        async function fetchRankings() {
+            const { data, error } = await supabase
+                .from('rankings')
+                .select('name, score')
+                .order('score', { ascending: false })
+                .limit(5);
+
+            if (error) {
+                document.getElementById('rank-list').innerText = "랭킹 로드 실패";
+                return;
+            }
+
+            document.getElementById('rank-list').innerHTML = data.map((r, i) => `
+                <div class="rank-item ${r.name === myName ? 'me' : ''}">
+                    <span>${i+1}. ${r.name}</span><span>${r.score}</span>
                 </div>
-                <button id="clickBtn" class="btn">10</button>
-            </div>
+            `).join('');
+        }
 
-            <div class="upgrade">
-                <div class="meta">
-                    <div class="title">자동 생산</div>
-                    <div class="desc">초당 자동으로 얻는 점수</div>
-                </div>
-                <button id="upgradeBtn" class="btn">20</button>
-            </div>
-        </div>
+        // 점수 업로드 (Upsert 방식)
+        async function uploadScore(s) {
+            if (!myName) return;
+            // 닉네임 기준으로 기존 점수 업데이트 또는 삽입
+            const { error } = await supabase
+                .from('rankings')
+                .upsert({ name: myName, score: s }, { onConflict: 'name' });
+            
+            if (!error) fetchRankings();
+        }
 
-        <div style="margin-top:12px; display:flex; gap:8px;">
-            <button id="resetBtn" class="btn" style="background: linear-gradient(180deg,#ff7a7a,#ff9a9a);">리셋</button>
-            <div class="small" style="margin-left:auto;">앱처럼: 홈화면에 추가 → 전체화면</div>
-        </div>
-    </div>
+        // --- 게임 엔진 (이전 화려한 이펙트 유지) ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = (Math.random() - 0.5) * 15;
+                this.speedY = (Math.random() - 0.5) * 15;
+                this.opacity = 1;
+            }
+            update() { this.x += this.speedX; this.y += this.speedY; this.opacity -= 0.03; }
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            }
+        }
 
-    <div class="footer">저장: 자동 (localStorage). 앱 아이콘은 <code>icon-192.png</code>, <code>icon-512.png</code> 추가</div>
-</div>
+        function playSound(type) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'perfect') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(330, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+            }
+        }
 
-<script>
-// ---- 게임 상태 ----
-let score = 0;
-let auto = 0;
-let clickPower = 1;
-let clickCost = 10;
-let upgradeCost = 20;
+        function handleInput(e) {
+            if (e.cancelable) e.preventDefault();
+            if (state === 'MAIN' && myName) {
+                state = 'IDLE';
+                mainScreen.classList.add('hidden');
+                gameUI.style.display = 'flex';
+                playSound('hit');
+                setTimeout(startNewRound, 600);
+                return;
+            }
+            if (state === 'HIT_STOP') return;
+            if (state === 'WAITING') { clearTimeout(timerId); processResult('EARLY'); }
+            else if (state === 'APPEARED') {
+                clearTimeout(timerId);
+                const diff = targetTime - Date.now();
+                processResult(diff <= 120 && diff >= 0 ? 'PERFECT' : 'EARLY');
+            }
+        }
 
-// ---- DOM ----
-const scoreEl = document.getElementById('score');
-const autoStat = document.getElementById('autoStat');
-const clickPowerStat = document.getElementById('clickPowerStat');
-const clickArea = document.getElementById('clickArea');
-const clickBtn = document.getElementById('clickBtn');
-const upgradeBtn = document.getElementById('upgradeBtn');
-const resetBtn = document.getElementById('resetBtn');
+        function startNewRound() {
+            state = 'WAITING';
+            timerId = setTimeout(() => {
+                state = 'APPEARED';
+                appearTime = Date.now();
+                duration = Math.random() * 1200 + 400;
+                targetTime = appearTime + duration;
+                timerId = setTimeout(() => { if (state === 'APPEARED') processResult('MISS'); }, duration);
+            }, Math.random() * 1000 + 500);
+        }
 
-// ---- 포맷 함수 (1,000 -> 1K) ----
-function formatNumber(n) {
-    if (n >= 1e12) return (n/1e12).toFixed(2).replace(/\.00$/,'') + 'T';
-    if (n >= 1e9) return (n/1e9).toFixed(2).replace(/\.00$/,'') + 'B';
-    if (n >= 1e6) return (n/1e6).toFixed(2).replace(/\.00$/,'') + 'M';
-    if (n >= 1e3) return (n/1e3).toFixed(2).replace(/\.00$/,'') + 'K';
-    return String(n);
-}
+        function processResult(result) {
+            if (result === 'PERFECT') {
+                score += 10;
+                feedbackEl.innerText = 'PERFECT!';
+                if (navigator.vibrate) navigator.vibrate([30, 10]);
+                playSound('perfect');
+                for(let i=0; i<15; i++) particles.push(new Particle(width/2, height/2));
+                shakeTime = 6;
+                state = 'HIT_STOP';
+                setTimeout(() => { feedbackEl.innerText = ''; startNewRound(); }, 100);
+            } else {
+                score += (result === 'EARLY') ? 2 : 0;
+                if (result === 'EARLY') { playSound('hit'); if (navigator.vibrate) navigator.vibrate(5); }
+                startNewRound();
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                localStorage.setItem('bestScore', bestScore);
+                bestEl.innerText = bestScore;
+                uploadScore(bestScore);
+            }
+            scoreEl.innerText = score;
+        }
 
-// ---- 저장 / 불러오기 ----
-function save() {
-    try {
-        localStorage.setItem('clickerSave', JSON.stringify({
-            score, auto, clickPower, clickCost, upgradeCost
-        }));
-    } catch(e) { /* storage 실패 시 무시 */ }
-}
+        function animate() {
+            ctx.save();
+            if (shakeTime > 0) { ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10); shakeTime--; }
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(0, 0, width, height);
+            particles = particles.filter(p => p.opacity > 0);
+            particles.forEach(p => { p.update(); p.draw(); });
+            if (state === 'APPEARED') {
+                const progress = (Date.now() - appearTime) / duration;
+                ctx.beginPath(); ctx.arc(width/2, height/2, 70, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff'; ctx.fill();
+                ctx.beginPath(); ctx.arc(width/2, height/2, 85, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * (1-progress)));
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
+            } else if (state === 'HIT_STOP') {
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height);
+            }
+            ctx.restore();
+            requestAnimationFrame(animate);
+        }
 
-function load() {
-    try {
-        const data = JSON.parse(localStorage.getItem('clickerSave'));
-        if (!data) return;
-        score = data.score ?? score;
-        auto = data.auto ?? auto;
-        clickPower = data.clickPower ?? clickPower;
-        clickCost = data.clickCost ?? clickCost;
-        upgradeCost = data.upgradeCost ?? upgradeCost;
-        updateAll();
-    } catch(e) {}
-}
-
-// ---- UI 업데이트 ----
-function updateAll() {
-    scoreEl.innerText = formatNumber(score);
-    autoStat.innerText = formatNumber(auto);
-    clickPowerStat.innerText = formatNumber(clickPower);
-    updateButtons();
-}
-
-function updateButtons() {
-    clickBtn.innerText = formatNumber(clickCost);
-    upgradeBtn.innerText = formatNumber(upgradeCost);
-
-    // 버튼 활성화/비활성화 처리 (시각/접근성)
-    if (score >= clickCost) {
-        clickBtn.classList.remove('disabled');
-        clickBtn.disabled = false;
-    } else {
-        clickBtn.classList.add('disabled');
-        clickBtn.disabled = true;
-    }
-
-    if (score >= upgradeCost) {
-        upgradeBtn.classList.remove('disabled');
-        upgradeBtn.disabled = false;
-    } else {
-        upgradeBtn.classList.add('disabled');
-        upgradeBtn.disabled = true;
-    }
-}
-
-// ---- 클릭 이펙트 (floating numbers) ----
-function spawnFloating(text, x, y) {
-    const el = document.createElement('div');
-    el.className = 'floating';
-    el.innerText = text;
-    el.style.left = (x - 20) + 'px';
-    el.style.top = (y - 20) + 'px';
-    clickArea.appendChild(el);
-
-    // 랜덤 slight offset
-    const dx = (Math.random() - 0.5) * 40;
-    const dy = -80 - Math.random() * 40;
-
-    el.animate([
-        { transform: 'translate(0,0)', opacity: 1 },
-        { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 }
-    ], {
-        duration: 900 + Math.random() * 300,
-        easing: 'cubic-bezier(.2,.9,.3,1)'
-    });
-
-    setTimeout(() => el.remove(), 1200);
-}
-
-// ---- 클릭 핸들러 ----
-function doClick(clientX, clientY) {
-    score += clickPower;
-    updateAll();
-    save();
-
-    // 진동(가능하면)
-    if (navigator.vibrate) navigator.vibrate(10);
-
-    // 클릭 플로팅
-    // client 좌표를 clickArea 내부 좌표로 변환
-    const rect = clickArea.getBoundingClientRect();
-    const cx = (clientX ?? (rect.left + rect.width/2)) - rect.left;
-    const cy = (clientY ?? (rect.top + rect.height/2)) - rect.top;
-    spawnFloating('+' + formatNumber(clickPower), cx, cy);
-}
-
-clickArea.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    doClick(e.clientX, e.clientY);
-});
-
-// 버튼 업그레이드
-clickBtn.addEventListener('click', () => {
-    if (score >= clickCost) {
-        score -= clickCost;
-        clickPower += 1;
-        clickCost = Math.floor(clickCost * 1.6);
-        updateAll();
-        save();
-        // 피드백
-        spawnFloating('-' + formatNumber(clickCost/1.6 | 0), 40, 40);
-    }
-});
-
-upgradeBtn.addEventListener('click', () => {
-    if (score >= upgradeCost) {
-        score -= upgradeCost;
-        auto += 1;
-        upgradeCost = Math.floor(upgradeCost * 1.7);
-        updateAll();
-        save();
-        spawnFloating('+' + formatNumber(1), 220, 40);
-    }
-});
-
-// 리셋 (간단)
-resetBtn.addEventListener('click', () => {
-    if (!confirm('정말 리셋할래? 저장된 진행도 모두 초기화돼.')) return;
-    score = 0; auto = 0; clickPower = 1;
-    clickCost = 10; upgradeCost = 20;
-    save();
-    updateAll();
-});
-
-// 자동 생산 (초당)
-setInterval(() => {
-    if (auto <= 0) return;
-    score += auto;
-    updateAll();
-    save();
-}, 1000);
-
-// 저장 보장: 페이지 숨김/종료 시 저장
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save(); });
-window.addEventListener('beforeunload', save);
-
-// 초기 로드
-load();
-updateAll();
-
-// ---- 서비스워커(PWA) 등록 ----
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(()=>{ /* 등록 실패 무시 */ });
-}
-</script>
+        function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+        window.onload = init;
+    </script>
 </body>
 </html>
