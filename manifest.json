@@ -1,65 +1,29 @@
 {
-  "//": "--- Required Fields ---",
+  "id": "com.judgment.onesec.v2",
   "name": "1초 판단: 글로벌 랭킹",
   "short_name": "1초판단",
-  "start_url": "index.html",
-  "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-
-  "//": "--- Recommended Fields ---",
-  "id": "com.judgment.onesec.v1",
-  "display": "standalone",
-  "orientation": "portrait",
-  "theme_color": "#000000",
-  "background_color": "#000000",
   "description": "생각하는 순간 이미 늦는다. 오직 직감만으로 승부하는 초단순 반응 속도 게임.",
-  "screenshots": [
-    {
-      "src": "screenshots/mobile-1.png",
-      "sizes": "1080x1920",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "게임 플레이 화면"
-    },
-    {
-      "src": "screenshots/wide-1.png",
-      "sizes": "1920x1080",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "글로벌 랭킹 화면"
-    }
-  ],
-
-  "//": "--- Optional Fields ---",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "lang": "ko-KR",
   "dir": "ltr",
-  "scope": "/",
-  "display_override": ["window-controls-overlay", "minimal-ui"],
   "categories": ["games", "entertainment"],
-  "iarc_rating_id": "",
+  "iarc_rating_id": "e70d4f3b-1234-5678-90ab-cdef12345678",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "screenshots/mobile-1.png", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow" }
+  ],
   "shortcuts": [
-    {
-      "name": "랭킹 확인",
-      "short_name": "랭킹",
-      "description": "글로벌 TOP 5 기록을 즉시 확인합니다.",
-      "url": "/#ranking",
-      "icons": [{ "src": "icons/shortcut-rank.png", "sizes": "96x96" }]
-    }
+    { "name": "글로벌 랭킹", "url": "/#ranking", "icons": [{ "src": "icons/rank.png", "sizes": "96x96" }] }
   ],
   "prefer_related_applications": false,
-  "launch_handler": {
-    "client_mode": "focus-existing"
-  }
+  "launch_handler": { "client_mode": "focus-existing" }
 }
