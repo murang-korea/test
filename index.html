@@ -31,6 +31,7 @@
         <div class="title">1초 판단</div>
         <div class="ranking" id="rank-list">로딩 중...</div>
         <div class="prompt">TAP TO START</div>
+        <button id="install-btn" style="display:none; margin-top: 20px; padding: 10px 20px; font-size: 1rem; background: #333; color: #fff; border: 1px solid #fff; border-radius: 5px; cursor: pointer;">앱 설치하기</button>
     </div>
 
     <div id="ui">
@@ -156,6 +157,32 @@
         }
 
         window.onload = init;
+
+        // PWA 설치 로직
+        let deferredPrompt;
+        const installBtn = document.getElementById('install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    installBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        window.addEventListener('appinstalled', () => {
+             installBtn.style.display = 'none';
+        });
+
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </script>
 </body>
