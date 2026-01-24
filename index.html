@@ -2,273 +2,161 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>1초 판단 - Global</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>1초 판단</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body {
-            margin: 0; background-color: #000; color: #fff;
-            font-family: 'Pretendard', sans-serif; overflow: hidden;
-            touch-action: none; user-select: none;
-        }
-        #main-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 100; background-color: #000; transition: opacity 0.4s ease;
-        }
-        #main-screen.hidden { opacity: 0; pointer-events: none; }
+        :root { --bg: #000; --fg: #fff; --accent: #fff; }
+        body { margin: 0; background: var(--bg); color: var(--fg); font-family: sans-serif; overflow: hidden; touch-action: none; user-select: none; }
         
-        #name-input-layer {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: #000; z-index: 200;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-        }
-        input { 
-            background: none; border: none; border-bottom: 2px solid #fff; 
-            color: #fff; font-size: 24px; text-align: center; outline: none; padding: 10px;
-        }
+        /* 메인 오버레이 */
+        #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; background: var(--bg); transition: 0.5s; }
+        #overlay.hidden { opacity: 0; pointer-events: none; }
+        .title { font-size: 3rem; font-weight: 900; letter-spacing: -2px; }
+        .ranking { width: 250px; margin: 20px 0; font-size: 0.9rem; color: #666; }
+        .rank-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #222; }
+        .prompt { margin-top: 30px; animation: blink 1s infinite; font-weight: bold; }
 
-        .title { font-size: 50px; font-weight: 900; letter-spacing: -3px; margin-bottom: 5px; }
-        .best-label { font-size: 14px; color: #666; margin-bottom: 20px; }
+        /* 게임 UI */
+        #ui { position: absolute; top: env(safe-area-inset-top, 20px); left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 25px; box-sizing: border-box; font-size: 1.2rem; font-weight: 900; opacity: 0.4; pointer-events: none; z-index: 10; }
+        #feedback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4rem; font-weight: 900; font-style: italic; pointer-events: none; z-index: 5; }
         
-        #ranking-board {
-            width: 240px; font-size: 14px; color: #555; margin-bottom: 40px;
-            text-align: center;
-        }
-        .rank-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #111; }
-        .rank-item.me { color: #fff; font-weight: bold; }
-
-        .start-prompt { font-size: 18px; color: #fff; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
-
-        #game-ui {
-            position: absolute; top: env(safe-area-inset-top, 20px); left: 0; width: 100%;
-            display: flex; justify-content: space-between; padding: 0 25px;
-            box-sizing: border-box; font-size: 18px; font-weight: 900;
-            z-index: 10; opacity: 0.4; display: none;
-        }
-        #feedback {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 60px; font-weight: 900; pointer-events: none; z-index: 5;
-            font-style: italic;
-        }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="name-input-layer" style="display: none;">
-        <div style="margin-bottom: 20px; font-weight: bold;">닉네임 설정</div>
-        <input type="text" id="nickname" maxlength="8" placeholder="입력 후 엔터">
-    </div>
-
-    <div id="main-screen">
+    <div id="overlay">
         <div class="title">1초 판단</div>
-        <div class="best-label">내 최고 기록: <span id="main-best">0</span></div>
-        <div id="ranking-board">
-            <div style="margin-bottom: 8px; font-size: 12px;">WORLD RANKING</div>
-            <div id="rank-list">로딩 중...</div>
-        </div>
-        <div class="start-prompt">터치하여 시작</div>
+        <div class="ranking" id="rank-list">로딩 중...</div>
+        <div class="prompt">TAP TO START</div>
     </div>
 
-    <div id="game-ui">
-        <div><span id="current-score">0</span></div>
+    <div id="ui">
+        <div id="cur-score">0</div>
         <div>BEST <span id="best-score">0</span></div>
     </div>
     <div id="feedback"></div>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="canvas"></canvas>
 
     <script>
-        // --- Supabase 설정 (본인의 정보를 입력하세요) ---
-        const SUPABASE_URL = 'https://figxcufbkmhkoxnkuljg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpZ3hjdWZia21oa294bmt1bGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxOTI5ODgsImV4cCI6MjA4NDc2ODk4OH0.eBQDwtWUXqZ-siZm0LPmMN8wLWUP6DzSMX6xV6dePwc';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-        // DOM 요소
-        const canvas = document.getElementById('gameCanvas');
+        const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const mainScreen = document.getElementById('main-screen');
-        const gameUI = document.getElementById('game-ui');
-        const scoreEl = document.getElementById('current-score');
-        const bestEl = document.getElementById('best-score');
-        const feedbackEl = document.getElementById('feedback');
+        let w, h, score = 0, best = localStorage.getItem('best') || 0;
+        let state = 'MAIN', particles = [], shake = 0, audio = null, wakeLock = null;
 
-        // 게임 변수
-        let width, height, score = 0;
-        let bestScore = parseInt(localStorage.getItem('bestScore')) || 0;
-        let myName = localStorage.getItem('nickname') || "";
-        let state = 'MAIN';
-        let targetTime = 0, appearTime = 0, duration = 0, timerId = null;
-        let particles = [], shakeTime = 0, audioCtx = null;
+        // 게임 상태 관리
+        let appearT = 0, targetT = 0, duration = 0, timer = null;
 
-        // 초기화 및 랭킹 불러오기
         async function init() {
             resize();
             window.addEventListener('resize', resize);
-            bestEl.innerText = bestScore;
-            document.getElementById('main-best').innerText = bestScore;
+            document.getElementById('best-score').innerText = best;
+            loadRankings();
 
-            if (!myName) {
-                document.getElementById('name-input-layer').style.display = 'flex';
-                document.getElementById('nickname').focus();
-            } else {
-                fetchRankings();
-            }
+            const start = async () => {
+                if (state !== 'MAIN') return;
+                state = 'IDLE';
+                document.getElementById('overlay').classList.add('hidden');
+                document.getElementById('ui').style.display = 'flex';
+                try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+                startRound();
+            };
 
-            document.getElementById('nickname').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && e.target.value.trim()) {
-                    myName = e.target.value.trim();
-                    localStorage.setItem('nickname', myName);
-                    document.getElementById('name-input-layer').style.display = 'none';
-                    fetchRankings();
-                }
-            });
-
-            document.addEventListener('touchstart', handleInput, { passive: false });
-            document.addEventListener('mousedown', handleInput);
+            document.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); start(); }, { passive: false });
+            document.addEventListener('mousedown', () => { handleInput(); start(); });
             animate();
         }
 
-        // 랭킹 데이터 가져오기
-        async function fetchRankings() {
-            const { data, error } = await supabase
-                .from('rankings')
-                .select('name, score')
-                .order('score', { ascending: false })
-                .limit(5);
+        function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
 
-            if (error) {
-                document.getElementById('rank-list').innerText = "랭킹 로드 실패";
-                return;
-            }
-
-            document.getElementById('rank-list').innerHTML = data.map((r, i) => `
-                <div class="rank-item ${r.name === myName ? 'me' : ''}">
-                    <span>${i+1}. ${r.name}</span><span>${r.score}</span>
-                </div>
-            `).join('');
+        async function loadRankings() {
+            if (!supabase) return;
+            const { data } = await supabase.from('rankings').select('name, score').order('score', { ascending: false }).limit(5);
+            if (data) document.getElementById('rank-list').innerHTML = data.map((r, i) => `<div class="rank-item"><span>${i+1}. ${r.name}</span><span>${r.score}</span></div>`).join('');
         }
 
-        // 점수 업로드 (Upsert 방식)
-        async function uploadScore(s) {
-            if (!myName) return;
-            // 닉네임 기준으로 기존 점수 업데이트 또는 삽입
-            const { error } = await supabase
-                .from('rankings')
-                .upsert({ name: myName, score: s }, { onConflict: 'name' });
-            
-            if (!error) fetchRankings();
-        }
-
-        // --- 게임 엔진 (이전 화려한 이펙트 유지) ---
-        class Particle {
-            constructor(x, y) {
-                this.x = x; this.y = y;
-                this.size = Math.random() * 5 + 2;
-                this.speedX = (Math.random() - 0.5) * 15;
-                this.speedY = (Math.random() - 0.5) * 15;
-                this.opacity = 1;
-            }
-            update() { this.x += this.speedX; this.y += this.speedY; this.opacity -= 0.03; }
-            draw() {
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-
-        function playSound(type) {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            if (type === 'perfect') {
-                osc.type = 'triangle'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-            } else {
-                osc.type = 'sine'; osc.frequency.setValueAtTime(330, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.05);
-            }
-        }
-
-        function handleInput(e) {
-            if (e.cancelable) e.preventDefault();
-            if (state === 'MAIN' && myName) {
-                state = 'IDLE';
-                mainScreen.classList.add('hidden');
-                gameUI.style.display = 'flex';
-                playSound('hit');
-                setTimeout(startNewRound, 600);
-                return;
-            }
-            if (state === 'HIT_STOP') return;
-            if (state === 'WAITING') { clearTimeout(timerId); processResult('EARLY'); }
-            else if (state === 'APPEARED') {
-                clearTimeout(timerId);
-                const diff = targetTime - Date.now();
-                processResult(diff <= 120 && diff >= 0 ? 'PERFECT' : 'EARLY');
-            }
-        }
-
-        function startNewRound() {
-            state = 'WAITING';
-            timerId = setTimeout(() => {
-                state = 'APPEARED';
-                appearTime = Date.now();
+        function startRound() {
+            state = 'WAIT';
+            timer = setTimeout(() => {
+                state = 'ACTIVE';
+                appearT = Date.now();
                 duration = Math.random() * 1200 + 400;
-                targetTime = appearTime + duration;
-                timerId = setTimeout(() => { if (state === 'APPEARED') processResult('MISS'); }, duration);
+                targetT = appearT + duration;
+                timer = setTimeout(() => { if (state === 'ACTIVE') endRound('MISS'); }, duration);
             }, Math.random() * 1000 + 500);
         }
 
-        function processResult(result) {
-            if (result === 'PERFECT') {
+        function handleInput() {
+            if (state === 'WAIT') { clearTimeout(timer); endRound('EARLY'); }
+            else if (state === 'ACTIVE') {
+                clearTimeout(timer);
+                const diff = targetT - Date.now();
+                endRound(diff <= 120 && diff >= 0 ? 'PERFECT' : 'EARLY');
+            }
+        }
+
+        function endRound(res) {
+            if (res === 'PERFECT') {
                 score += 10;
-                feedbackEl.innerText = 'PERFECT!';
-                if (navigator.vibrate) navigator.vibrate([30, 10]);
-                playSound('perfect');
-                for(let i=0; i<15; i++) particles.push(new Particle(width/2, height/2));
-                shakeTime = 6;
-                state = 'HIT_STOP';
-                setTimeout(() => { feedbackEl.innerText = ''; startNewRound(); }, 100);
+                showFeedback('PERFECT!');
+                vibrate([40, 20]); playSfx(880, 0.1);
+                for(let i=0; i<20; i++) particles.push(new Particle(w/2, h/2));
+                shake = 10; state = 'STOP';
+                setTimeout(startRound, 100);
             } else {
-                score += (result === 'EARLY') ? 2 : 0;
-                if (result === 'EARLY') { playSound('hit'); if (navigator.vibrate) navigator.vibrate(5); }
-                startNewRound();
+                if (res === 'EARLY') { score += 2; playSfx(330, 0.05); vibrate(10); }
+                showFeedback(''); startRound();
             }
-            if (score > bestScore) {
-                bestScore = score;
-                localStorage.setItem('bestScore', bestScore);
-                bestEl.innerText = bestScore;
-                uploadScore(bestScore);
+            if (score > best) { best = score; localStorage.setItem('best', best); updateBest(); }
+            document.getElementById('cur-score').innerText = score;
+        }
+
+        function updateBest() {
+            document.getElementById('best-score').innerText = best;
+            if (supabase) {
+                const name = localStorage.getItem('nickname') || '익명';
+                supabase.from('rankings').upsert({ name, score: best }, { onConflict: 'name' }).then();
             }
-            scoreEl.innerText = score;
+        }
+
+        function showFeedback(txt) { document.getElementById('feedback').innerText = txt; }
+        function vibrate(p) { if (navigator.vibrate) navigator.vibrate(p); }
+        function playSfx(f, d) {
+            if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audio.createOscillator(), g = audio.createGain();
+            o.connect(g); g.connect(audio.destination);
+            o.frequency.setValueAtTime(f, audio.currentTime);
+            g.gain.setValueAtTime(0.1, audio.currentTime); g.gain.linearRampToValueAtTime(0, audio.currentTime + d);
+            o.start(); o.stop(audio.currentTime + d);
+        }
+
+        class Particle {
+            constructor(x, y) { this.x = x; this.y = y; this.vx = (Math.random()-0.5)*20; this.vy = (Math.random()-0.5)*20; this.a = 1; }
+            update() { this.x += this.vx; this.y += this.vy; this.a -= 0.03; }
+            draw() { ctx.fillStyle = `rgba(255,255,255,${this.a})`; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill(); }
         }
 
         function animate() {
-            ctx.save();
-            if (shakeTime > 0) { ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10); shakeTime--; }
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-            ctx.fillRect(0, 0, width, height);
-            particles = particles.filter(p => p.opacity > 0);
-            particles.forEach(p => { p.update(); p.draw(); });
-            if (state === 'APPEARED') {
-                const progress = (Date.now() - appearTime) / duration;
-                ctx.beginPath(); ctx.arc(width/2, height/2, 70, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff'; ctx.fill();
-                ctx.beginPath(); ctx.arc(width/2, height/2, 85, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * (1-progress)));
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
-            } else if (state === 'HIT_STOP') {
-                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height);
-            }
-            ctx.restore();
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0,0,w,h);
+            if (shake > 0) { ctx.save(); ctx.translate((Math.random()-0.5)*15, (Math.random()-0.5)*15); shake--; }
+            particles = particles.filter(p => p.a > 0); particles.forEach(p => { p.update(); p.draw(); });
+            if (state === 'ACTIVE') {
+                const p = (Date.now() - appearT) / duration;
+                ctx.beginPath(); ctx.arc(w/2, h/2, 70, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
+                ctx.beginPath(); ctx.arc(w/2, h/2, 85, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1-p)); ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
+            } else if (state === 'STOP') { ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); }
+            if (shake >= 0) ctx.restore();
             requestAnimationFrame(animate);
         }
 
-        function resize() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
         window.onload = init;
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </script>
 </body>
 </html>
