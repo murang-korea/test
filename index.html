@@ -2,161 +2,183 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>1초 판단</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>하늘색 토끼 코인 캐기</title>
+    <!-- PWA를 위한 매니페스트 파일 연결 -->
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --bg: #000; --fg: #fff; --accent: #fff; }
-        body { margin: 0; background: var(--bg); color: var(--fg); font-family: sans-serif; overflow: hidden; touch-action: none; user-select: none; }
-        
-        /* 메인 오버레이 */
-        #overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; background: var(--bg); transition: 0.5s; }
-        #overlay.hidden { opacity: 0; pointer-events: none; }
-        .title { font-size: 3rem; font-weight: 900; letter-spacing: -2px; }
-        .ranking { width: 250px; margin: 20px 0; font-size: 0.9rem; color: #666; }
-        .rank-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #222; }
-        .prompt { margin-top: 30px; animation: blink 1s infinite; font-weight: bold; }
+        /* style.css 내용이 여기에 들어갑니다 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #e0f7fa; /* 연한 하늘색 배경 */
+            color: #333;
+            text-align: center;
+            padding: 20px;
+        }
 
-        /* 게임 UI */
-        #ui { position: absolute; top: env(safe-area-inset-top, 20px); left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 25px; box-sizing: border-box; font-size: 1.2rem; font-weight: 900; opacity: 0.4; pointer-events: none; z-index: 10; }
-        #feedback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 4rem; font-weight: 900; font-style: italic; pointer-events: none; z-index: 5; }
-        
-        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
-        canvas { display: block; }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #00796b; /* 진한 청록색 */
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        p {
+            font-size: 1.6em;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        #score {
+            color: #d32f2f; /* 빨간색 점수 */
+        }
+
+        button {
+            padding: 15px 25px;
+            font-size: 1.3em;
+            cursor: pointer;
+            background-color: #0288d1; /* 하늘색 버튼 */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            margin: 10px auto;
+            display: block; /* 버튼을 중앙 정렬 */
+            width: fit-content;
+        }
+
+        button:hover {
+            background-color: #0277bd;
+            transform: translateY(-2px); /* 호버 시 약간 위로 */
+        }
+
+        .upgrade-section {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+
+        h2 {
+            color: #424242;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        #autoClickerLevel {
+            color: #f57c00; /* 주황색 레벨 표시 */
+        }
     </style>
 </head>
 <body>
-    <div id="overlay">
-        <div class="title">1초 판단</div>
-        <div class="ranking" id="rank-list">로딩 중...</div>
-        <div class="prompt">TAP TO START</div>
+    <div class="container">
+        <h1>✨ 하늘색 토끼 코인 채굴! ✨</h1>
+        <p>나의 코인: <span id="score">0</span></p>
+        <button id="clickButton">하늘색 토끼 클릭! 🐇</button>
+        <div class="upgrade-section">
+            <h2>업그레이드</h2>
+            <button id="upgradeButton">자동 채굴기 (비용: 10 코인)</button>
+            <p>자동 채굴기 레벨: <span id="autoClickerLevel">0</span></p>
+        </div>
     </div>
-
-    <div id="ui">
-        <div id="cur-score">0</div>
-        <div>BEST <span id="best-score">0</span></div>
-    </div>
-    <div id="feedback"></div>
-    <canvas id="canvas"></canvas>
-
     <script>
-        const SUPABASE_URL = 'https://figxcufbkmhkoxnkuljg.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpZ3hjdWZia21oa294bmt1bGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxOTI5ODgsImV4cCI6MjA4NDc2ODk4OH0.eBQDwtWUXqZ-siZm0LPmMN8wLWUP6DzSMX6xV6dePwc';
-        const supabase = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        /* app.js 내용이 여기에 들어갑니다 */
+        let score = 0; // 현재 코인
+        let autoClickerLevel = 0; // 자동 채굴기 레벨
+        let autoClickerCost = 10; // 자동 채굴기 초기 비용
+        let autoClickerInterval; // 자동 채굴 간격을 저장할 변수
 
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        let w, h, score = 0, best = localStorage.getItem('best') || 0;
-        let state = 'MAIN', particles = [], shake = 0, audio = null, wakeLock = null;
+        // HTML 요소들을 가져옵니다.
+        const scoreDisplay = document.getElementById('score');
+        const clickButton = document.getElementById('clickButton');
+        const upgradeButton = document.getElementById('upgradeButton');
+        const autoClickerLevelDisplay = document.getElementById('autoClickerLevel');
 
-        // 게임 상태 관리
-        let appearT = 0, targetT = 0, duration = 0, timer = null;
+        // 점수 및 레벨 화면 업데이트 함수
+        function updateDisplays() {
+            scoreDisplay.textContent = score;
+            autoClickerLevelDisplay.textContent = autoClickerLevel;
+            upgradeButton.textContent = `자동 채굴기 (비용: ${autoClickerCost} 코인)`;
+            // 점수가 충분하면 업그레이드 버튼 활성화/비활성화
+            upgradeButton.disabled = (score < autoClickerCost);
 
-        async function init() {
-            resize();
-            window.addEventListener('resize', resize);
-            document.getElementById('best-score').innerText = best;
-            loadRankings();
-
-            const start = async () => {
-                if (state !== 'MAIN') return;
-                state = 'IDLE';
-                document.getElementById('overlay').classList.add('hidden');
-                document.getElementById('ui').style.display = 'flex';
-                try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
-                startRound();
-            };
-
-            document.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); start(); }, { passive: false });
-            document.addEventListener('mousedown', () => { handleInput(); start(); });
-            animate();
+            // 게임 상태를 로컬 저장소에 저장 (PWA에서 종료 후에도 유지되도록)
+            localStorage.setItem('clickerScore', score);
+            localStorage.setItem('autoClickerLevel', autoClickerLevel);
+            localStorage.setItem('autoClickerCost', autoClickerCost); // 현재 비용도 저장
         }
 
-        function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+        // 게임 로드 시 로컬 저장소에서 데이터 불러오기
+        function loadGame() {
+            score = parseInt(localStorage.getItem('clickerScore') || '0');
+            autoClickerLevel = parseInt(localStorage.getItem('autoClickerLevel') || '0');
+            autoClickerCost = parseInt(localStorage.getItem('autoClickerCost') || '10'); // 초기 비용도 불러옴
 
-        async function loadRankings() {
-            if (!supabase) return;
-            const { data } = await supabase.from('rankings').select('name, score').order('score', { ascending: false }).limit(5);
-            if (data) document.getElementById('rank-list').innerHTML = data.map((r, i) => `<div class="rank-item"><span>${i+1}. ${r.name}</span><span>${r.score}</span></div>`).join('');
-        }
-
-        function startRound() {
-            state = 'WAIT';
-            timer = setTimeout(() => {
-                state = 'ACTIVE';
-                appearT = Date.now();
-                duration = Math.random() * 1200 + 400;
-                targetT = appearT + duration;
-                timer = setTimeout(() => { if (state === 'ACTIVE') endRound('MISS'); }, duration);
-            }, Math.random() * 1000 + 500);
-        }
-
-        function handleInput() {
-            if (state === 'WAIT') { clearTimeout(timer); endRound('EARLY'); }
-            else if (state === 'ACTIVE') {
-                clearTimeout(timer);
-                const diff = targetT - Date.now();
-                endRound(diff <= 120 && diff >= 0 ? 'PERFECT' : 'EARLY');
+            // 자동 채굴이 이미 있었다면 다시 시작
+            if (autoClickerLevel > 0) {
+                startAutoClicker();
             }
+            updateDisplays(); // 초기 화면 업데이트
         }
 
-        function endRound(res) {
-            if (res === 'PERFECT') {
-                score += 10;
-                showFeedback('PERFECT!');
-                vibrate([40, 20]); playSfx(880, 0.1);
-                for(let i=0; i<20; i++) particles.push(new Particle(w/2, h/2));
-                shake = 10; state = 'STOP';
-                setTimeout(startRound, 100);
+        // 클릭 버튼 이벤트 리스너
+        clickButton.addEventListener('click', () => {
+            score += 1; // 클릭당 1 코인 증가
+            updateDisplays();
+        });
+
+        // 업그레이드 버튼 이벤트 리스너
+        upgradeButton.addEventListener('click', () => {
+            if (score >= autoClickerCost) {
+                score -= autoClickerCost;
+                autoClickerLevel += 1;
+                // 다음 업그레이드 비용 계산 로직
+                autoClickerCost = Math.floor(autoClickerCost * 1.5) + 10; // 레벨마다 비용 1.5배 증가 + 10 코인
+                
+                startAutoClicker(); // 자동 채굴 시작 또는 업데이트
+                updateDisplays();
             } else {
-                if (res === 'EARLY') { score += 2; playSfx(330, 0.05); vibrate(10); }
-                showFeedback(''); startRound();
+                alert('코인이 부족합니다! 더 클릭하세요!');
             }
-            if (score > best) { best = score; localStorage.setItem('best', best); updateBest(); }
-            document.getElementById('cur-score').innerText = score;
-        }
+        });
 
-        function updateBest() {
-            document.getElementById('best-score').innerText = best;
-            if (supabase) {
-                const name = localStorage.getItem('nickname') || '익명';
-                supabase.from('rankings').upsert({ name, score: best }, { onConflict: 'name' }).then();
+        // 자동 채굴 시작/업데이트 함수
+        function startAutoClicker() {
+            // 이미 자동 채굴 중이면 중지하고 다시 시작 (레벨이 올랐으니)
+            if (autoClickerInterval) {
+                clearInterval(autoClickerInterval);
             }
+            // 1초마다 자동 채굴기 레벨만큼 코인 증가
+            autoClickerInterval = setInterval(() => {
+                score += autoClickerLevel;
+                updateDisplays();
+            }, 1000); // 1초 (1000ms)마다 실행
         }
 
-        function showFeedback(txt) { document.getElementById('feedback').innerText = txt; }
-        function vibrate(p) { if (navigator.vibrate) navigator.vibrate(p); }
-        function playSfx(f, d) {
-            if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
-            const o = audio.createOscillator(), g = audio.createGain();
-            o.connect(g); g.connect(audio.destination);
-            o.frequency.setValueAtTime(f, audio.currentTime);
-            g.gain.setValueAtTime(0.1, audio.currentTime); g.gain.linearRampToValueAtTime(0, audio.currentTime + d);
-            o.start(); o.stop(audio.currentTime + d);
+        // 페이지 로드 시 게임 데이터 불러오기
+        loadGame();
+    </script>
+    <script>
+        // PWA 서비스 워커 등록 (가장 마지막에)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => console.log('ServiceWorker registered: ', registration))
+                    .catch(error => console.log('ServiceWorker registration failed: ', error));
+            });
         }
-
-        class Particle {
-            constructor(x, y) { this.x = x; this.y = y; this.vx = (Math.random()-0.5)*20; this.vy = (Math.random()-0.5)*20; this.a = 1; }
-            update() { this.x += this.vx; this.y += this.vy; this.a -= 0.03; }
-            draw() { ctx.fillStyle = `rgba(255,255,255,${this.a})`; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI*2); ctx.fill(); }
-        }
-
-        function animate() {
-            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0,0,w,h);
-            if (shake > 0) { ctx.save(); ctx.translate((Math.random()-0.5)*15, (Math.random()-0.5)*15); shake--; }
-            particles = particles.filter(p => p.a > 0); particles.forEach(p => { p.update(); p.draw(); });
-            if (state === 'ACTIVE') {
-                const p = (Date.now() - appearT) / duration;
-                ctx.beginPath(); ctx.arc(w/2, h/2, 70, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
-                ctx.beginPath(); ctx.arc(w/2, h/2, 85, -Math.PI/2, -Math.PI/2 + Math.PI*2*(1-p)); ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.stroke();
-            } else if (state === 'STOP') { ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); }
-            if (shake >= 0) ctx.restore();
-            requestAnimationFrame(animate);
-        }
-
-        window.onload = init;
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </script>
 </body>
 </html>
