@@ -41,8 +41,8 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_URL = 'https://figxcufbkmhkoxnkuljg.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpZ3hjdWZia21oa294bmt1bGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxOTI5ODgsImV4cCI6MjA4NDc2ODk4OH0.eBQDwtWUXqZ-siZm0LPmMN8wLWUP6DzSMX6xV6dePwc';
         const supabase = window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
         const canvas = document.getElementById('canvas');
