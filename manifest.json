@@ -1,24 +1,21 @@
 {
-  "id": "com.onesec.judge.v1",
-  "name": "1초 판단: 글로벌 랭킹",
-  "short_name": "1초판단",
-  "description": "생각하지 마라, 느껴라! 1초의 찰나에 결정되는 승부.",
-  "start_url": "index.html",
+  "name": "하늘색 토끼 코인 캐기",
+  "short_name": "토끼 클릭커",
+  "description": "우직님의 하늘색 토끼와 함께 코인을 모으는 클릭커 게임!",
+  "start_url": "./index.html",
   "display": "standalone",
-  "display_override": ["window-controls-overlay"],
-  "orientation": "portrait",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "categories": ["games", "entertainment"],
+  "background_color": "#e0f7fa",
+  "theme_color": "#00796b",
   "icons": [
-    { "src": "https://via.placeholder.com/192/ffffff/000000?text=1S", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "https://via.placeholder.com/512/ffffff/000000?text=1S", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ],
-  "screenshots": [
-    { "src": "https://via.placeholder.com/1080x1920/000000/ffffff?text=1sec+Judge", "sizes": "1080x1920", "type": "image/png", "form_factor": "narrow" }
-  ],
-  "shortcuts": [
-    { "name": "랭킹 보기", "url": "/#ranking", "icons": [{ "src": "https://via.placeholder.com/96/ffffff/000000?text=R", "sizes": "96x96" }] }
-  ],
-  "launch_handler": { "client_mode": "focus-existing" }
+    {
+      "src": "icons/rabbit-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/rabbit-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
