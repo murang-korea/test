@@ -1,33 +1,52 @@
-const CACHE_NAME = '1sec-v1.2';
-const ASSETS = [
+const CACHE_NAME = 'rabbit-clicker-cache-v1';
+const urlsToCache = [
   '/',
-  'index.html',
-  'manifest.json',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/manifest.json',
+  '/icons/rabbit-icon-192.png', // 아이콘 경로도 캐싱
+  '/icons/rabbit-icon-512.png'  // 아이콘 경로도 캐싱
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
-  self.skipWaiting();
+// 서비스 워커 설치 시점에 파일 캐싱
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
+      })
+  );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE_NAME && caches.delete(k)))));
-  self.clients.claim();
+// 캐시 또는 네트워크에서 리소스 요청 가로채기
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // 캐시에 있으면 캐시된 응답 반환
+        if (response) {
+          return response;
+        }
+        // 캐시에 없으면 네트워크로 요청
+        return fetch(event.request);
+      })
+  );
 });
 
-self.addEventListener('fetch', (e) => {
-  // Supabase API 호출은 네트워크 우선, 나머지는 캐시 우선
-  if (e.request.url.includes('supabase.co')) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-  } else {
-    e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
-  }
-});
-
-// 백그라운드 동기화 (오프라인 점수 전송 대비)
-self.addEventListener('sync', (e) => {
-  if (e.tag === 'sync-scores') {
-    console.log('점수 동기화 중...');
-  }
+// 캐시 업데이트 (새로운 버전의 서비스 워커 활성화 시)
+self.addEventListener('activate', (event) => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName); // 오래된 캐시 삭제
+          }
+        })
+      );
+    })
+  );
 });
