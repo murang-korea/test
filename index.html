@@ -1,87 +1,91 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>엔트리 작품 플레이어</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entry Player</title>
 
-    <!-- 1. 스타일시트 로드 (CDN 활용) -->
-    <link href="https://entry-cdn.pstatic.net/lib/entry-tool/dist/entry-tool.css" rel="stylesheet">
-    <link href="https://entry-cdn.pstatic.net/lib/entry-js/dist/entry.css" rel="stylesheet">
+<style>
+html, body {
+    margin:0;
+    width:100%;
+    height:100%;
+    background:#000;
+    overflow:hidden;
+}
 
-    <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f0f0f0; }
-        #control-panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; gap: 5px; }
-        #entryContainer { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        input { padding: 5px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 5px 10px; cursor: pointer; background: #00c73c; color: white; border: none; border-radius: 4px; }
-    </style>
+#player {
+    position:absolute;
+    inset:0;
+}
 
-    <!-- 2. 필수 의존성 라이브러리 로드 -->
-    <script src="https://entry-cdn.pstatic.net/lib/lodash/dist/lodash.min.js"></script>
-    <script src="https://entry-cdn.pstatic.net/lib/jquery/jquery.min.js"></script>
-    <script src="https://entry-cdn.pstatic.net/lib/EaselJS/lib/easeljs-0.8.0.min.js"></script>
-    <script src="https://entry-cdn.pstatic.net/lib/SoundJS/lib/soundjs-0.6.0.min.js"></script>
-    <script src="https://entry-cdn.pstatic.net/lib/PreloadJS/lib/preloadjs-0.6.0.min.js"></script>
-    <script src="https://entry-cdn.pstatic.net/lib/velocity/velocity.min.js"></script>
-    <!-- 엔트리 엔진 및 언어팩 -->
-    <script src="https://entry-cdn.pstatic.net/lib/entry-js/extern/lang/ko.js"></script>
-    <script src="https://entry-cdn.pstatic.net/lib/entry-js/dist/entry.min.js"></script>
+iframe {
+    position:absolute;
+    border:none;
+    transform-origin: top left;
+}
+</style>
 </head>
+
 <body>
 
-    <div id="control-panel">
-        <input type="text" id="projectUrl" placeholder="엔트리 작품 링크를 입력하세요 (예: https://playentry.org/project/...)">
-        <button onclick="loadEntryProject()">작품 실행</button>
-    </div>
+<div id="player">
+    <iframe id="frame"></iframe>
+</div>
 
-    <div id="entryContainer"></div>
+<script>
 
-    <script>
-        /**
-         * 3. 엔트리 초기화 및 실행 로직
-         */
-        function loadEntryProject() {
-            const urlInput = document.getElementById('projectUrl').value;
-            const projectId = urlInput.split('/').pop(); // 링크에서 ID 추출
+// ⭐ 여기 링크만 바꾸면 됨
+let entryProjectUrl =
+"https://playentry.org/project/67b313a92a0d3f3f7f425b94";
 
-            if (!projectId) {
-                alert("올바른 엔트리 링크를 입력해주세요.");
-                return;
-            }
 
-            // 기존 컨테이너 비우기
-            const container = document.getElementById('entryContainer');
-            container.innerHTML = '';
+// =========================
+// ID 추출
+// =========================
+function getProjectId(url){
+    let match = url.match(/project\/([a-z0-9]+)/i);
+    return match ? match[1] : null;
+}
 
-            // 엔트리 엔진 초기화 (구경하기 모드 'minimize' 사용)
-            Entry.init(container, {
-                type: 'minimize',
-                libDir: 'https://entry-cdn.pstatic.net/lib',
-                fonts: [{ name: '나눔고딕', family: 'Nanum Gothic', url: 'https://entry-cdn.pstatic.net/css/nanumgothic.css' }]
-            });
+let projectId = getProjectId(entryProjectUrl);
 
-            // 엔트리 API를 통해 프로젝트 데이터를 가져와서 로드
-            // 외부 사이트에서 직접 fetch 시 CORS 이슈가 발생할 수 있으므로, 
-            // 실제 서비스 시에는 서버 측 프록시나 엔트리 오픈 소스 구조를 더 깊게 활용해야 합니다.
-            fetch(`https://playentry.org/api/project/${projectId}`)
-                .then(response => response.json())
-                .then(projectData => {
-                    Entry.loadProject(projectData);
-                    console.log("작품 로드 완료");
-                })
-                .catch(err => {
-                    console.error("작품 로드 실패:", err);
-                    alert("작품 데이터를 가져오는 데 실패했습니다.");
-                });
-        }
+let frame = document.getElementById("frame");
 
-        // 4. 화면 크기 조정 이벤트 대응
-        window.addEventListener('resize', () => {
-            if (window.Entry && Entry.dispatchEvent) {
-                Entry.dispatchEvent('windowResized');
-            }
-        });
-    </script>
+frame.src =
+`https://playentry.org/embed/${projectId}`;
+
+
+
+// =========================
+// 반응형 스케일
+// =========================
+const WIDTH = 960;
+const HEIGHT = 540;
+
+function resize(){
+
+    let scale = Math.min(
+        window.innerWidth / WIDTH,
+        window.innerHeight / HEIGHT
+    );
+
+    frame.style.width = WIDTH + "px";
+    frame.style.height = HEIGHT + "px";
+
+    frame.style.transform = `scale(${scale})`;
+
+    frame.style.left =
+        (window.innerWidth - WIDTH * scale)/2 + "px";
+
+    frame.style.top =
+        (window.innerHeight - HEIGHT * scale)/2 + "px";
+}
+
+window.addEventListener("resize", resize);
+resize();
+
+</script>
+
 </body>
 </html>
