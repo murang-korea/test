@@ -3,182 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>하늘색 토끼 코인 캐기</title>
-    <!-- PWA를 위한 매니페스트 파일 연결 -->
-    <link rel="manifest" href="manifest.json">
+    <title>엔트리 작품 플레이어</title>
+
+    <!-- 1. 스타일시트 로드 (CDN 활용) -->
+    <link href="https://entry-cdn.pstatic.net/lib/entry-tool/dist/entry-tool.css" rel="stylesheet">
+    <link href="https://entry-cdn.pstatic.net/lib/entry-js/dist/entry.css" rel="stylesheet">
+
     <style>
-        /* style.css 내용이 여기에 들어갑니다 */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #e0f7fa; /* 연한 하늘색 배경 */
-            color: #333;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
-            max-width: 400px;
-            width: 100%;
-        }
-
-        h1 {
-            color: #00796b; /* 진한 청록색 */
-            margin-bottom: 20px;
-            font-size: 2em;
-        }
-
-        p {
-            font-size: 1.6em;
-            margin: 15px 0;
-            font-weight: bold;
-        }
-
-        #score {
-            color: #d32f2f; /* 빨간색 점수 */
-        }
-
-        button {
-            padding: 15px 25px;
-            font-size: 1.3em;
-            cursor: pointer;
-            background-color: #0288d1; /* 하늘색 버튼 */
-            color: white;
-            border: none;
-            border-radius: 8px;
-            transition: background-color 0.3s ease;
-            margin: 10px auto;
-            display: block; /* 버튼을 중앙 정렬 */
-            width: fit-content;
-        }
-
-        button:hover {
-            background-color: #0277bd;
-            transform: translateY(-2px); /* 호버 시 약간 위로 */
-        }
-
-        .upgrade-section {
-            margin-top: 30px;
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-        }
-
-        h2 {
-            color: #424242;
-            margin-bottom: 15px;
-            font-size: 1.5em;
-        }
-
-        #autoClickerLevel {
-            color: #f57c00; /* 주황색 레벨 표시 */
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f0f0f0; }
+        #control-panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; gap: 5px; }
+        #entryContainer { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        input { padding: 5px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 5px 10px; cursor: pointer; background: #00c73c; color: white; border: none; border-radius: 4px; }
     </style>
+
+    <!-- 2. 필수 의존성 라이브러리 로드 -->
+    <script src="https://entry-cdn.pstatic.net/lib/lodash/dist/lodash.min.js"></script>
+    <script src="https://entry-cdn.pstatic.net/lib/jquery/jquery.min.js"></script>
+    <script src="https://entry-cdn.pstatic.net/lib/EaselJS/lib/easeljs-0.8.0.min.js"></script>
+    <script src="https://entry-cdn.pstatic.net/lib/SoundJS/lib/soundjs-0.6.0.min.js"></script>
+    <script src="https://entry-cdn.pstatic.net/lib/PreloadJS/lib/preloadjs-0.6.0.min.js"></script>
+    <script src="https://entry-cdn.pstatic.net/lib/velocity/velocity.min.js"></script>
+    <!-- 엔트리 엔진 및 언어팩 -->
+    <script src="https://entry-cdn.pstatic.net/lib/entry-js/extern/lang/ko.js"></script>
+    <script src="https://entry-cdn.pstatic.net/lib/entry-js/dist/entry.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>✨ 하늘색 토끼 코인 채굴! ✨</h1>
-        <p>나의 코인: <span id="score">0</span></p>
-        <button id="clickButton">하늘색 토끼 클릭! 🐇</button>
-        <div class="upgrade-section">
-            <h2>업그레이드</h2>
-            <button id="upgradeButton">자동 채굴기 (비용: 10 코인)</button>
-            <p>자동 채굴기 레벨: <span id="autoClickerLevel">0</span></p>
-        </div>
+
+    <div id="control-panel">
+        <input type="text" id="projectUrl" placeholder="엔트리 작품 링크를 입력하세요 (예: https://playentry.org/project/...)">
+        <button onclick="loadEntryProject()">작품 실행</button>
     </div>
+
+    <div id="entryContainer"></div>
+
     <script>
-        /* app.js 내용이 여기에 들어갑니다 */
-        let score = 0; // 현재 코인
-        let autoClickerLevel = 0; // 자동 채굴기 레벨
-        let autoClickerCost = 10; // 자동 채굴기 초기 비용
-        let autoClickerInterval; // 자동 채굴 간격을 저장할 변수
+        /**
+         * 3. 엔트리 초기화 및 실행 로직
+         */
+        function loadEntryProject() {
+            const urlInput = document.getElementById('projectUrl').value;
+            const projectId = urlInput.split('/').pop(); // 링크에서 ID 추출
 
-        // HTML 요소들을 가져옵니다.
-        const scoreDisplay = document.getElementById('score');
-        const clickButton = document.getElementById('clickButton');
-        const upgradeButton = document.getElementById('upgradeButton');
-        const autoClickerLevelDisplay = document.getElementById('autoClickerLevel');
-
-        // 점수 및 레벨 화면 업데이트 함수
-        function updateDisplays() {
-            scoreDisplay.textContent = score;
-            autoClickerLevelDisplay.textContent = autoClickerLevel;
-            upgradeButton.textContent = `자동 채굴기 (비용: ${autoClickerCost} 코인)`;
-            // 점수가 충분하면 업그레이드 버튼 활성화/비활성화
-            upgradeButton.disabled = (score < autoClickerCost);
-
-            // 게임 상태를 로컬 저장소에 저장 (PWA에서 종료 후에도 유지되도록)
-            localStorage.setItem('clickerScore', score);
-            localStorage.setItem('autoClickerLevel', autoClickerLevel);
-            localStorage.setItem('autoClickerCost', autoClickerCost); // 현재 비용도 저장
-        }
-
-        // 게임 로드 시 로컬 저장소에서 데이터 불러오기
-        function loadGame() {
-            score = parseInt(localStorage.getItem('clickerScore') || '0');
-            autoClickerLevel = parseInt(localStorage.getItem('autoClickerLevel') || '0');
-            autoClickerCost = parseInt(localStorage.getItem('autoClickerCost') || '10'); // 초기 비용도 불러옴
-
-            // 자동 채굴이 이미 있었다면 다시 시작
-            if (autoClickerLevel > 0) {
-                startAutoClicker();
+            if (!projectId) {
+                alert("올바른 엔트리 링크를 입력해주세요.");
+                return;
             }
-            updateDisplays(); // 초기 화면 업데이트
-        }
 
-        // 클릭 버튼 이벤트 리스너
-        clickButton.addEventListener('click', () => {
-            score += 1; // 클릭당 1 코인 증가
-            updateDisplays();
-        });
+            // 기존 컨테이너 비우기
+            const container = document.getElementById('entryContainer');
+            container.innerHTML = '';
 
-        // 업그레이드 버튼 이벤트 리스너
-        upgradeButton.addEventListener('click', () => {
-            if (score >= autoClickerCost) {
-                score -= autoClickerCost;
-                autoClickerLevel += 1;
-                // 다음 업그레이드 비용 계산 로직
-                autoClickerCost = Math.floor(autoClickerCost * 1.5) + 10; // 레벨마다 비용 1.5배 증가 + 10 코인
-                
-                startAutoClicker(); // 자동 채굴 시작 또는 업데이트
-                updateDisplays();
-            } else {
-                alert('코인이 부족합니다! 더 클릭하세요!');
-            }
-        });
-
-        // 자동 채굴 시작/업데이트 함수
-        function startAutoClicker() {
-            // 이미 자동 채굴 중이면 중지하고 다시 시작 (레벨이 올랐으니)
-            if (autoClickerInterval) {
-                clearInterval(autoClickerInterval);
-            }
-            // 1초마다 자동 채굴기 레벨만큼 코인 증가
-            autoClickerInterval = setInterval(() => {
-                score += autoClickerLevel;
-                updateDisplays();
-            }, 1000); // 1초 (1000ms)마다 실행
-        }
-
-        // 페이지 로드 시 게임 데이터 불러오기
-        loadGame();
-    </script>
-    <script>
-        // PWA 서비스 워커 등록 (가장 마지막에)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => console.log('ServiceWorker registered: ', registration))
-                    .catch(error => console.log('ServiceWorker registration failed: ', error));
+            // 엔트리 엔진 초기화 (구경하기 모드 'minimize' 사용)
+            Entry.init(container, {
+                type: 'minimize',
+                libDir: 'https://entry-cdn.pstatic.net/lib',
+                fonts: [{ name: '나눔고딕', family: 'Nanum Gothic', url: 'https://entry-cdn.pstatic.net/css/nanumgothic.css' }]
             });
+
+            // 엔트리 API를 통해 프로젝트 데이터를 가져와서 로드
+            // 외부 사이트에서 직접 fetch 시 CORS 이슈가 발생할 수 있으므로, 
+            // 실제 서비스 시에는 서버 측 프록시나 엔트리 오픈 소스 구조를 더 깊게 활용해야 합니다.
+            fetch(`https://playentry.org/api/project/${projectId}`)
+                .then(response => response.json())
+                .then(projectData => {
+                    Entry.loadProject(projectData);
+                    console.log("작품 로드 완료");
+                })
+                .catch(err => {
+                    console.error("작품 로드 실패:", err);
+                    alert("작품 데이터를 가져오는 데 실패했습니다.");
+                });
         }
+
+        // 4. 화면 크기 조정 이벤트 대응
+        window.addEventListener('resize', () => {
+            if (window.Entry && Entry.dispatchEvent) {
+                Entry.dispatchEvent('windowResized');
+            }
+        });
     </script>
 </body>
 </html>
